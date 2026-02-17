@@ -1,0 +1,19 @@
+.boxError{
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100vh;
+width: 100vw;
+}
+
+.boxTitle{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.img{
+    background-color: var(--color-neutral-light);
+    
+}
+
