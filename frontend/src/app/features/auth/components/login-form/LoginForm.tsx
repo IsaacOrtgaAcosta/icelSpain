@@ -4,10 +4,9 @@ import { TextFieldComponent as TextField } from "@/app/shared/components/ui/text
 import { ButtonVisibleIcon } from "@/app/shared/components/ui/buttonVisibleIcon/ButtonVisibleIcon";
 import { ButtonComponent } from "@/app/shared/components/ui/button/Button";
 import { AlertComponent } from "@/app/shared/components/ui/alert/Alert";
-import { Box, Link } from "@mui/material";
+import { Box, Link, Typography } from "@mui/material";
 import usePasswordToggle from "@/app/shared/hooks/usePasswordToggle";
 import login from "../../api/login";
-import Logo from "@/assets/logo/logo-vertical.svg";
 import styles from "./LoginForm.module.css";
 
 export const LoginForm = () => {
@@ -34,8 +33,10 @@ export const LoginForm = () => {
   };
 
   return (
-    <Box className={styles.form}>
-      <img src={Logo} alt="logo" className={styles.logo} />
+    <Box className={styles.form} sx={{ bgcolor: "background.default", p: 3, borderRadius: 1}}>
+      <Typography variant="h5" gutterBottom sx={{color: "text.primary"}}>
+        Iniciar sesión
+      </Typography>
       {errorVisible ? (
         <AlertComponent severity="error" variant="filled" sx={{ mb: 2 }}>
           Hay campos vacíos. Escribe usuario y la contraseña para acceder.
@@ -73,17 +74,20 @@ export const LoginForm = () => {
         />
       </Box>
       <ButtonComponent
-        color="primary"
+        color="secondary"
         type="submit"
         variant="contained"
-        sx={{ width: "25%", mt: 2 }}
+        sx={{ width: "100%", mt: 2 }}
         onClick={sendPayLoadLogin}
       >
-        Acceder
+        Iniciar sesión
       </ButtonComponent>
-      <Box sx={{ mt: 2 }} onClick={handleRegisterRedirection}>
-        <Link color="primary" sx={{ cursor: "pointer" }}>
-          Registrarse
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-around' }} onClick={handleRegisterRedirection}>
+        <Link color="text.secondary" sx={{ cursor: "pointer", fontSize: "12px" }}>
+          Aviso Legal
+        </Link>
+        <Link color="text.secondary" sx={{ cursor: "pointer", fontSize: "12px" }}>
+          Política de privacidad
         </Link>
       </Box>
     </Box>
