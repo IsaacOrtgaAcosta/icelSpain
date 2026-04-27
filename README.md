@@ -1,2 +1,0 @@
-# icelSpain
-SaaS for IcelSpain
