@@ -1,0 +1,9 @@
+.container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-image: url("@/../public/images/login_icel_Spain_background.webp");
+  background-size: cover;
+  background-position: center;
+}
