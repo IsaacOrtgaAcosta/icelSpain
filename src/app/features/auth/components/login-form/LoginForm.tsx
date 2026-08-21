@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Alert, Anchor, Box, Card, Flex, Image, Title } from "@mantine/core";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Imagotipo from "@/../public/images/imagotipo.webp";
 import { login, AuthApiError } from "../../api/authApi";
 import { authStorage } from "../../authStorage";
@@ -19,7 +19,7 @@ export const LoginForm = () => {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
@@ -27,7 +27,6 @@ export const LoginForm = () => {
     event.preventDefault();
     setIsSubmitting(true);
     setErrorMessage(null);
-    setSuccessMessage("");
 
     try {
       const token = await login({
@@ -36,7 +35,7 @@ export const LoginForm = () => {
       });
 
       authStorage.setAccessToken(token.access_token);
-      setSuccessMessage("Sesión iniciada correctamente");
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       if (error instanceof AuthApiError) {
         setErrorMessage(error.message);
@@ -93,11 +92,7 @@ export const LoginForm = () => {
             {errorMessage}
           </Alert>
         )}
-        {successMessage && (
-          <Alert color="green" mb="md">
-            {successMessage}
-          </Alert>
-        )}
+
         <Box mb="md" w="100%">
           <ButtonProgress
             title="Iniciar sesión"
@@ -110,7 +105,7 @@ export const LoginForm = () => {
         <Box mt="md" ta="center">
           <Anchor
             component={Link}
-            to="/forgot-password"
+            to="/auth/forgot-password"
             size="sm"
             c="charcoal.7"
           >
