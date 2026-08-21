@@ -1,50 +1,123 @@
-import { FloatingLabelInput } from "@/app/shared/components/input/floating-input/FloatingLabelInput";
-import { Box, Card, Image, Title, Flex, Anchor } from "@mantine/core";
-import Imagotipo from "@/../public/images/imagotipo.webp";
-import styles from "./LoginForm.module.css";
-import { ButtonProgress } from "@/app/shared/components/button/ButtonProgress";
-import { PasswordField } from "@/app/shared/components/input/floating-input/FloatingLabelInput";
+import { useState } from "react";
+import type { FormEvent } from "react";
+import { Alert, Anchor, Box, Card, Flex, Image, Title } from "@mantine/core";
 import { Link } from "react-router-dom";
+import Imagotipo from "@/../public/images/imagotipo.webp";
+import { login, AuthApiError } from "../../api/authApi";
+import { authStorage } from "../../authStorage";
+import { ButtonProgress } from "@/app/shared/components//button/ButtonProgress";
+
+import {
+  FloatingLabelInput,
+  PasswordField,
+} from "@/app/shared/components/input/floating-input/FloatingLabelInput";
+
+import styles from "./LoginForm.module.css";
+
 export const LoginForm = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    setSuccessMessage("");
+
+    try {
+      const token = await login({
+        email: email.trim(),
+        password,
+      });
+
+      authStorage.setAccessToken(token.access_token);
+      setSuccessMessage("Sesión iniciada correctamente");
+    } catch (error) {
+      if (error instanceof AuthApiError) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage(
+          "Ocurrió un error inesperado. Por favor, inténtalo de nuevo más tarde.",
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <>
-      <Card
-        shadow="md"
-        padding="xl"
-        radius="md"
-        withBorder
-        w={{ base: "calc(100vw - 32px)", sm: 440, md: 480 }}
-        maw={480}
-      >
-        <Flex direction="column" align="center" mb="md">
-          <Box className={styles.loginFormLogoContainer}>
-            <Image radius="xl" src={Imagotipo} alt="Imagotipo" />
-          </Box>
-          <Box mt="lg">
-            <Title order={2} ta="center" mb="md">
-              Login
-            </Title>
-          </Box>
-        </Flex>
-        <Box mb="md">
-          <FloatingLabelInput label="Usuario" required />
+    <Card
+      component="form"
+      onSubmit={handleSubmit}
+      shadow="md"
+      padding="xl"
+      radius="md"
+      withBorder
+      w={{ base: "calc(100vw - 32px)", sm: 400, md: 480 }}
+      maw={480}
+    >
+      <Flex direction="column" align="center" mb="md">
+        <Box className={styles.imagotipoContainer}>
+          <Image radius="xl" src={Imagotipo} alt="Imagotipo de ICEL" />
         </Box>
-        <Box mb="md">
-          <PasswordField label="Contraseña" required />
+        <Box mt="lg">
+          <Title order={2} ta="center" mb="md">
+            Iniciar sesión
+          </Title>
         </Box>
-        <Box mt="md">
+        <Box mb="md" w="100%">
+          <FloatingLabelInput
+            label="Correo electrónico"
+            value={email}
+            onChange={setEmail}
+            required
+            autoComplete="email"
+          />
+        </Box>
+        <Box mb="md" w="100%">
+          <PasswordField
+            label="Contraseña"
+            value={password}
+            onChange={setPassword}
+            required
+          />
+        </Box>
+
+        {errorMessage && (
+          <Alert color="red" mb="md">
+            {errorMessage}
+          </Alert>
+        )}
+        {successMessage && (
+          <Alert color="green" mb="md">
+            {successMessage}
+          </Alert>
+        )}
+        <Box mb="md" w="100%">
           <ButtonProgress
             title="Iniciar sesión"
-            inProgressTitle="Iniciando sesión"
-            progressFinished="Sesión iniciada"
+            type="submit"
+            inProgressTitle="Iniciando sesión..."
+            loading={isSubmitting}
+            disabled={!email.trim() || !password.trim() || isSubmitting}
           />
         </Box>
         <Box mt="md" ta="center">
-          <Anchor component={Link} to="/auth/forgot-password" size="sm" c="charcoal.7">
+          <Anchor
+            component={Link}
+            to="/forgot-password"
+            size="sm"
+            c="charcoal.7"
+          >
             ¿Olvidaste tu contraseña?
           </Anchor>
         </Box>
-      </Card>
-    </>
+      </Flex>
+    </Card>
   );
 };
