@@ -12,7 +12,7 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconLayoutDashboard, IconLogout } from "@tabler/icons-react";
+import { IconLayoutDashboard, IconLogout, IconUsers } from "@tabler/icons-react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Imagotipo from "@/../public/images/imagotipo.webp";
@@ -38,7 +38,14 @@ const navigationItems = [
     label: "Dashboard",
     path: "/dashboard",
     icon: IconLayoutDashboard,
+    ownerOnly: false,
   },
+  {
+    label: 'Usuarios',
+    path: '/users',
+    icon: IconUsers,
+    ownerOnly: true,
+  }
 ];
 
 export const AppLayout = () => {
@@ -55,6 +62,10 @@ export const AppLayout = () => {
 
   const displayName = user?.full_name ?? user?.email ?? "Usuario";
 
+  const visibleNavigationItems = navigationItems.filter(
+    (item) => !item.ownerOnly || user?.role === 'owner',
+  );
+  
   return (
     <AppShell
       header={{ height: 64 }}
@@ -108,7 +119,7 @@ export const AppLayout = () => {
       <AppShell.Navbar p="md">
         <Stack justify="space-between" h="100%">
           <Stack gap="xs">
-            {navigationItems.map((item) => (
+            {visibleNavigationItems.map((item) => (
               <NavLink
                 key={item.path}
                 component={Link}
