@@ -20,3 +20,8 @@
 .logoutButton:hover {
   background-color: var(--mantine-color-red-0);
 }
+
+.userInformation {
+  min-width: 0;
+  padding-inline: var(--mantine-spacing-sm);
+}

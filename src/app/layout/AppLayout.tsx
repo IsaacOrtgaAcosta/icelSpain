@@ -1,7 +1,10 @@
 import { useState } from "react";
 import {
   AppShell,
+  Badge,
+  Box,
   Burger,
+  Divider,
   Group,
   Image,
   NavLink,
@@ -9,21 +12,26 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import {
-  IconLayoutDashboard,
-  IconLogout,
-} from "@tabler/icons-react";
-import {
-  Link,
-  Outlet,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { IconLayoutDashboard, IconLogout } from "@tabler/icons-react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Imagotipo from "@/../public/images/imagotipo.webp";
 import { authStorage } from "@/app/features/auth/authStorage";
-
+import { useAuth } from "../features/auth/context/auth-context";
+import type { UserRole } from "../features/auth/types";
 import classes from "./AppLayout.module.css";
+
+const roleLabels: Record<UserRole, string> = {
+  owner: "Propietario",
+  site_manager: "Encargado",
+  employee: "Empleado",
+};
+
+const roleColors: Record<UserRole, string> = {
+  owner: "yellow",
+  site_manager: "blue",
+  employee: "gray",
+};
 
 const navigationItems = [
   {
@@ -35,13 +43,17 @@ const navigationItems = [
 
 export const AppLayout = () => {
   const [mobileMenuOpened, setMobileMenuOpened] = useState(false);
+  const { user, setUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = (): void => {
     authStorage.clearAccessToken();
+    setUser(null);
     navigate("/", { replace: true });
   };
+
+  const displayName = user?.full_name ?? user?.email ?? "Usuario";
 
   return (
     <AppShell
@@ -56,7 +68,7 @@ export const AppLayout = () => {
       padding="lg"
     >
       <AppShell.Header>
-        <Group h="100%" px="md">
+        <Group h="100%" px="md" justify="space-between" wrap='nowrap'>
           <Burger
             opened={mobileMenuOpened}
             onClick={() => setMobileMenuOpened((opened) => !opened)}
@@ -77,6 +89,19 @@ export const AppLayout = () => {
               ICEL Spain
             </Text>
           </Group>
+
+          <Group gap="sm" wrap="nowrap">
+            <Stack gap={2} align="flex-end">
+              <Text
+              size="sm"
+              fw={600}
+              truncate
+              maw={{base: 120, sm: 240}}
+              >
+                {displayName}
+              </Text>
+            </Stack>
+          </Group>
         </Group>
       </AppShell.Header>
 
@@ -95,6 +120,33 @@ export const AppLayout = () => {
                 className={classes.navigationLink}
               />
             ))}
+          </Stack>
+
+          <Stack gap="sm">
+            <Divider />
+
+            <Box className={classes.userInformation}>
+              <Text size="sm" fw={600} truncate>
+                {displayName}
+              </Text>
+
+              {user && (
+                <>
+                  <Text size="xs" c="dimmed" truncate>
+                    {user.email}
+                  </Text>
+
+                  <Badge
+                    color={roleColors[user.role]}
+                    variant="light"
+                    size="sm"
+                    mt={6}
+                  >
+                    {roleLabels[user.role]}
+                  </Badge>
+                </>
+              )}
+            </Box>
           </Stack>
 
           <UnstyledButton
