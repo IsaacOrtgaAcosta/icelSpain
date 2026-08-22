@@ -8,10 +8,13 @@ export type AuthToken = {
     token_type: string;
 }
 
+export type UserRole = 'owner' | 'site_manager' | 'employee';
+
 export type AuthUser = {
     id: string;
     email: string;
     full_name: string | null;
+    role: UserRole;
     is_active: boolean;
     created_at: string;
 }
