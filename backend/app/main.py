@@ -4,6 +4,7 @@ from app.db.session import engine
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from app.api.v1.users import router as users_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -30,6 +31,11 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
+
+app.include_router(
+    users_router,
+    prefix=settings.api_v1_prefix,
+)
 
 
 @app.get("/health")
