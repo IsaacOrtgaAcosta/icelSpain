@@ -1,7 +1,8 @@
 from datetime import datetime
-from uuid import UUID
-from app.models.user import UserRole
 from typing import Literal
+from uuid import UUID
+
+from app.models.user import UserRole
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -40,6 +41,7 @@ class ManagedUserCreate(BaseModel):
     password: str = Field(min_length=12, max_length=128)
     full_name: str = Field(min_length=1, max_length=120)
     role: Literal[
+        UserRole.ARCHITECT,
         UserRole.SITE_MANAGER,
         UserRole.EMPLOYEE,
     ]

@@ -66,3 +66,56 @@ def require_owner(current_user: CurrentUser) -> User:
 
 
 OwnerUser: TypeAlias = Annotated[User, Depends(require_owner)]
+
+
+def require_project_admin(
+    current_user: CurrentUser,
+) -> User:
+    allowed_roles = {
+        UserRole.OWNER,
+        UserRole.ARCHITECT,
+    }
+
+    if current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Esta acción requiere permisos de propietario "
+                "o arquitecto."
+            ),
+        )
+
+    return current_user
+
+
+ProjectAdminUser: TypeAlias = Annotated[
+    User,
+    Depends(require_project_admin),
+]
+
+
+def require_project_overview_access(
+    current_user: CurrentUser,
+) -> User:
+    allowed_roles = {
+        UserRole.OWNER,
+        UserRole.ARCHITECT,
+        UserRole.SITE_MANAGER,
+    }
+
+    if current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "No tienes permisos para consultar todas "
+                "las obras."
+            ),
+        )
+
+    return current_user
+
+
+ProjectOverviewUser: TypeAlias = Annotated[
+    User,
+    Depends(require_project_overview_access),
+]
