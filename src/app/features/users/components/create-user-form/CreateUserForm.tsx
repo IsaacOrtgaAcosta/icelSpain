@@ -29,7 +29,7 @@ export const CreateUserForm = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleRoleChange = (value: string | null): void => {
-    if (value === "site_manager" || value === "employee") {
+    if (value === "architect" || value === "site_manager" || value === "employee") {
       setRole(value);
     }
   };
@@ -112,6 +112,10 @@ export const CreateUserForm = () => {
             value={role}
             onChange={handleRoleChange}
             data={[
+              {
+                value: 'architect',
+                label: "Arquitecto",
+              },
               {
                 value: "site_manager",
                 label: "Encargado de obra",

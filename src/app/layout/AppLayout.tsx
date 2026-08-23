@@ -12,7 +12,12 @@ import {
   Text,
   UnstyledButton,
 } from "@mantine/core";
-import { IconLayoutDashboard, IconLogout, IconUsers } from "@tabler/icons-react";
+import {
+  IconLayoutDashboard,
+  IconLogout,
+  IconUsers,
+  IconBuildingCommunity,
+} from "@tabler/icons-react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Imagotipo from "@/../public/images/imagotipo.webp";
@@ -23,12 +28,14 @@ import classes from "./AppLayout.module.css";
 
 const roleLabels: Record<UserRole, string> = {
   owner: "Propietario",
+  architect: "Arquitecto",
   site_manager: "Encargado",
   employee: "Empleado",
 };
 
 const roleColors: Record<UserRole, string> = {
   owner: "yellow",
+  architect: "grape",
   site_manager: "blue",
   employee: "gray",
 };
@@ -41,11 +48,17 @@ const navigationItems = [
     ownerOnly: false,
   },
   {
-    label: 'Usuarios',
-    path: '/users',
+    label: "Proyectos",
+    path: "/projects",
+    icon: IconBuildingCommunity,
+    ownerOnly: false,
+  },
+  {
+    label: "Usuarios",
+    path: "/users",
     icon: IconUsers,
     ownerOnly: true,
-  }
+  },
 ];
 
 export const AppLayout = () => {
@@ -66,17 +79,17 @@ export const AppLayout = () => {
       window.alert(
         "No se pudo cerrar la sesión. Comprueba la conexión e inténtalo de nuevo.",
       );
-    }finally{
+    } finally {
       setIsLoggingOut(false);
     }
-  }
+  };
 
   const displayName = user?.full_name ?? user?.email ?? "Usuario";
 
   const visibleNavigationItems = navigationItems.filter(
-    (item) => !item.ownerOnly || user?.role === 'owner',
+    (item) => !item.ownerOnly || user?.role === "owner",
   );
-  
+
   return (
     <AppShell
       header={{ height: 64 }}
@@ -90,7 +103,7 @@ export const AppLayout = () => {
       padding="lg"
     >
       <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between" wrap='nowrap'>
+        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Burger
             opened={mobileMenuOpened}
             onClick={() => setMobileMenuOpened((opened) => !opened)}
@@ -114,12 +127,7 @@ export const AppLayout = () => {
 
           <Group gap="sm" wrap="nowrap">
             <Stack gap={2} align="flex-end">
-              <Text
-              size="sm"
-              fw={600}
-              truncate
-              maw={{base: 120, sm: 240}}
-              >
+              <Text size="sm" fw={600} truncate maw={{ base: 120, sm: 240 }}>
                 {displayName}
               </Text>
             </Stack>
@@ -137,7 +145,10 @@ export const AppLayout = () => {
                 to={item.path}
                 label={item.label}
                 leftSection={<item.icon size={20} stroke={1.8} />}
-                active={location.pathname === item.path}
+                active={
+                  location.pathname === item.path ||
+                  location.pathname.startsWith(`${item.path}/`)
+                }
                 onClick={() => setMobileMenuOpened(false)}
                 className={classes.navigationLink}
               />
@@ -178,7 +189,7 @@ export const AppLayout = () => {
           >
             <IconLogout size={20} stroke={1.8} />
             <Text size="sm" fw={500}>
-              {isLoggingOut ? "Cerrando sessión..." : "Cerrar sesión"}
+              {isLoggingOut ? "Cerrando sesión..." : "Cerrar sesión"}
             </Text>
           </UnstyledButton>
         </Stack>
