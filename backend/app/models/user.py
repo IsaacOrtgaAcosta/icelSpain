@@ -1,15 +1,16 @@
 from datetime import datetime
-from uuid import UUID, uuid4
 from enum import StrEnum
+from uuid import UUID, uuid4
+
+from app.db.base import Base
 from sqlalchemy import Boolean, DateTime, Enum, String, func
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
-
 
 class UserRole(StrEnum):
     OWNER = "owner"
+    ARCHITECT = "architect"
     SITE_MANAGER = "site_manager"
     EMPLOYEE = "employee"
 
