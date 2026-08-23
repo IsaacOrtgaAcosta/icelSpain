@@ -16,6 +16,7 @@ const isUserRole = (
   value: unknown,
 ): value is AuthUser["role"] =>
   value === "owner" ||
+  value === "architect" ||
   value === "site_manager" ||
   value === "employee";
 
