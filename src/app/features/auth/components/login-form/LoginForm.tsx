@@ -4,7 +4,6 @@ import { Alert, Anchor, Box, Card, Flex, Image, Title } from "@mantine/core";
 import { Link, useNavigate } from "react-router-dom";
 import Imagotipo from "@/../public/images/imagotipo.webp";
 import { login, AuthApiError } from "../../api/authApi";
-import { authStorage } from "../../authStorage";
 import { ButtonProgress } from "@/app/shared/components//button/ButtonProgress";
 
 import {
@@ -29,12 +28,11 @@ export const LoginForm = () => {
     setErrorMessage(null);
 
     try {
-      const token = await login({
+      await login({
         email: email.trim(),
         password,
       });
 
-      authStorage.setAccessToken(token.access_token);
       navigate("/dashboard", { replace: true });
     } catch (error) {
       if (error instanceof AuthApiError) {

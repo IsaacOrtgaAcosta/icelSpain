@@ -16,8 +16,8 @@ import { IconLayoutDashboard, IconLogout, IconUsers } from "@tabler/icons-react"
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import Imagotipo from "@/../public/images/imagotipo.webp";
-import { authStorage } from "@/app/features/auth/authStorage";
 import { useAuth } from "../features/auth/context/auth-context";
+import { logout } from "@/app/features/auth/api/authApi";
 import type { UserRole } from "../features/auth/types";
 import classes from "./AppLayout.module.css";
 
@@ -50,15 +50,26 @@ const navigationItems = [
 
 export const AppLayout = () => {
   const [mobileMenuOpened, setMobileMenuOpened] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { user, setUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = (): void => {
-    authStorage.clearAccessToken();
-    setUser(null);
-    navigate("/", { replace: true });
-  };
+  const handleLogout = async (): Promise<void> => {
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+      setUser(null);
+      navigate("/", { replace: true });
+    } catch {
+      window.alert(
+        "No se pudo cerrar la sesión. Comprueba la conexión e inténtalo de nuevo.",
+      );
+    }finally{
+      setIsLoggingOut(false);
+    }
+  }
 
   const displayName = user?.full_name ?? user?.email ?? "Usuario";
 
@@ -162,11 +173,12 @@ export const AppLayout = () => {
 
           <UnstyledButton
             className={classes.logoutButton}
-            onClick={handleLogout}
+            onClick={() => void handleLogout()}
+            disabled={isLoggingOut}
           >
             <IconLogout size={20} stroke={1.8} />
             <Text size="sm" fw={500}>
-              Cerrar sesión
+              {isLoggingOut ? "Cerrando sessión..." : "Cerrar sesión"}
             </Text>
           </UnstyledButton>
         </Stack>

@@ -13,7 +13,6 @@ import {
   Text,
 } from "@mantine/core";
 
-import { authStorage } from "@/app/features/auth/authStorage";
 import {
   createManagedUser,
   UsersApiError,
@@ -47,13 +46,6 @@ export const CreateUserForm = () => {
       return;
     }
 
-    const accessToken = authStorage.getAccessToken();
-
-    if (!accessToken) {
-      setErrorMessage("La sesión no está disponible. Vuelve a iniciar sesión.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -64,7 +56,6 @@ export const CreateUserForm = () => {
           password,
           role,
         },
-        accessToken,
       );
 
       setSuccessMessage(`Usuario ${createdUser.email} creado correctamente.`);
@@ -142,6 +133,7 @@ export const CreateUserForm = () => {
               minLength={12}
               maxLength={128}
               autoComplete="new-password"
+              aria-describedby="initial-password-help"
             />
             <Text id="initial-password-help" size="xs" c="dimmed">
               Debe contener entre 12 y 128 caracteres.
