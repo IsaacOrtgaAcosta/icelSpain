@@ -1,7 +1,10 @@
-import type { AuthUser } from "@/app/features/auth/types";
-import type { ManagedUserCreate } from "../types";
+import {
+  authenticatedFetch,
+  AuthApiError,
+} from '@/app/features/auth/api/authApi';
+import type { AuthUser } from '@/app/features/auth/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
+import type { ManagedUserCreate } from '../types';
 
 export class UsersApiError extends Error {
   status: number;
@@ -14,24 +17,25 @@ export class UsersApiError extends Error {
 }
 
 const isUserRole = (value: unknown): value is AuthUser["role"] =>
-  value === "owner" || value === "site_manager" || value === "employee";
+  value === "owner" || value === "architect" || value === "site_manager" || value === "employee";
 
 export const createManagedUser = async (
   userData: ManagedUserCreate,
-  accessToken: string,
 ): Promise<AuthUser> => {
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/api/v1/users`, {
+    response = await authenticatedFetch("/api/v1/users", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(userData),
     });
-  } catch {
+  } catch (error) {
+    if(error instanceof AuthApiError){
+      throw new UsersApiError(error.message, error.status);
+    }
     throw new UsersApiError("No se pudo conectar con el servidor", 0);
   }
 

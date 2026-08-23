@@ -8,7 +8,7 @@ from alembic import context
 from app.core.config import settings
 from app.db.base import Base
 from app.models.user import User  # noqa: F401
-
+from app.models.user_session import UserSession  # noqa: F401
 
 target_metadata = Base.metadata
 
