@@ -32,6 +32,7 @@ import {
   ProjectsApiError,
 } from "@/app/features/projects/api/projectsApi";
 import { CreateDwellingForm } from "@/app/features/projects/components/create-dwelling-form/CreateDwellingForm";
+import { ProjectAssignmentsSection } from "../components/project-assignments-section/ProjectAssignmentsSection";
 import type {
   ProjectDetail,
   ProjectStatus,
@@ -380,6 +381,9 @@ export const ProjectDetailPage = () => {
               </SimpleGrid>
             )}
           </Stack>
+
+          <ProjectAssignmentsSection projectId={project.id}/>
+
         </Stack>
       </Container>
 

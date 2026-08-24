@@ -7,9 +7,12 @@ import type {
   Dwelling,
   DwellingCreate,
   Project,
+  ProjectAssignment,
+  ProjectAssignmentCreate,
   ProjectCreate,
   ProjectDetail,
   ProjectStatus,
+  ProjectAssignmentsBulkCreate,
 } from "../types";
 
 
@@ -107,6 +110,59 @@ const isDwelling = (
     typeof value.created_at === "string" &&
     "updated_at" in value &&
     typeof value.updated_at === "string"
+  );
+};
+
+
+const isAssignmentUser = (
+  value: unknown,
+): value is ProjectAssignment["user"] => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    "id" in value &&
+    typeof value.id === "string" &&
+    "email" in value &&
+    typeof value.email === "string" &&
+    "full_name" in value &&
+    isNullableString(value.full_name) &&
+    "role" in value &&
+    (
+      value.role === "owner" ||
+      value.role === "architect" ||
+      value.role === "site_manager" ||
+      value.role === "employee"
+    ) &&
+    "is_active" in value &&
+    typeof value.is_active === "boolean" &&
+    "created_at" in value &&
+    typeof value.created_at === "string"
+  );
+};
+
+
+const isProjectAssignment = (
+  value: unknown,
+): value is ProjectAssignment => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    "id" in value &&
+    typeof value.id === "string" &&
+    "project_id" in value &&
+    typeof value.project_id === "string" &&
+    "user_id" in value &&
+    typeof value.user_id === "string" &&
+    "assigned_by_id" in value &&
+    typeof value.assigned_by_id === "string" &&
+    "created_at" in value &&
+    typeof value.created_at === "string" &&
+    "user" in value &&
+    isAssignmentUser(value.user)
   );
 };
 
@@ -289,3 +345,137 @@ export const createDwelling = async (
 
   return data;
 };
+
+export const listProjectAssignments = async (
+  projectId: string,
+): Promise<ProjectAssignment[]> => {
+  const response = await performRequest(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/assignments`,
+  );
+
+  const data = await getResponseData(response);
+
+  if (!response.ok) {
+    throw new ProjectsApiError(
+      getErrorMessage(
+        data,
+        "No se pudo obtener el personal asignado.",
+      ),
+      response.status,
+    );
+  }
+
+  if (
+    !Array.isArray(data) ||
+    !data.every(isProjectAssignment)
+  ) {
+    throw new ProjectsApiError(
+      "El servidor devolvió una lista de asignaciones inesperada.",
+      response.status,
+    );
+  }
+
+  return data;
+};
+
+
+export const assignUserToProject = async (
+  projectId: string,
+  assignmentData: ProjectAssignmentCreate,
+): Promise<ProjectAssignment> => {
+  const response = await performRequest(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/assignments`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(assignmentData),
+    },
+  );
+
+  const data = await getResponseData(response);
+
+  if (!response.ok) {
+    throw new ProjectsApiError(
+      getErrorMessage(
+        data,
+        "No se pudo asignar el empleado.",
+      ),
+      response.status,
+    );
+  }
+
+  if (!isProjectAssignment(data)) {
+    throw new ProjectsApiError(
+      "El servidor devolvió una asignación inesperada.",
+      response.status,
+    );
+  }
+
+  return data;
+};
+
+
+export const removeUserFromProject = async (
+  projectId: string,
+  userId: string,
+): Promise<void> => {
+  const response = await performRequest(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/assignments/${encodeURIComponent(userId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  if (!response.ok) {
+    const data = await getResponseData(response);
+
+    throw new ProjectsApiError(
+      getErrorMessage(
+        data,
+        "No se pudo retirar al empleado del proyecto.",
+      ),
+      response.status,
+    );
+  }
+};
+
+export const assignUsersToProject = async (
+  projectId: string,
+  assignmentData: ProjectAssignmentsBulkCreate,
+): Promise<ProjectAssignment[]> => {
+  const response = await performRequest(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/assignments/bulk`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(assignmentData),
+    },
+  );
+
+  const data = await getResponseData(response);
+
+  if(!response.ok) {
+    throw new ProjectsApiError(
+      getErrorMessage(
+        data,
+        "No se pudieron asignar los empleados",
+      ),
+      response.status,
+    );
+  }
+
+  if (
+    !Array.isArray(data) ||
+    !data.every(isProjectAssignment)
+  ) {
+    throw new ProjectsApiError(
+      "El servidor devolvió una lista de asignaciones inesperada", response.status,
+    );
+  }
+
+  return data;
+}
