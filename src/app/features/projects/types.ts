@@ -68,3 +68,49 @@ export type ProjectAssignment = {
 export type ProjectAssignmentsBulkCreate = {
     user_ids: string[];
 };
+
+export type DwellingProgressStage =
+| "structure"
+| "electricity"
+| "plumbing"
+| "air_conditioning"
+| "sanitation"
+| "home_automation"
+| "bracing"
+| "interior_board"
+| "insulation"
+| "exterior_board"
+| "facade"
+| "roof"
+| "carpentry";
+
+export type DwellingProgressItem = {
+    stage: DwellingProgressStage;
+    percentage: number;
+    updated_by_id: string | null;
+    updated_at: string | null;
+};
+
+export type DwellingProgress = {
+    dwelling_id: string;
+    items: DwellingProgressItem[];
+    installations_percentage: number;
+    overall_percentage: number;
+};
+
+export type ProjectProgressItem = {
+    stage: DwellingProgressStage;
+    percentage: number;
+};
+
+export type ProjectProgress = {
+    project_id: string;
+    dwelling_count: number;
+    items: ProjectProgressItem[];
+    installations_percentage: number;
+    overall_percentage: number;
+};
+
+export type DwellingProgressUpdate = {
+    percentage: number;
+};

@@ -4,6 +4,7 @@ from app.api.dependencies import (
     CurrentUser,
     DatabaseSession,
     ProjectAdminUser,
+    ProgressEditorUser,
 )
 from app.models.dwelling import Dwelling
 from app.models.project import Project
@@ -16,10 +17,21 @@ from app.schemas.project import (
     ProjectDetail,
     ProjectRead,
 )
+from app.models.dwelling_progress import (
+    DwellingProgress,
+    DwellingProgressStage,
+)
 from app.schemas.project_assignment import (
     ProjectAssignmentCreate,
     ProjectAssignmentRead,
     ProjectAssignmentsBulkCreate,
+)
+from app.schemas.dwelling_progress import (
+    DwellingProgressItemRead,
+    DwellingProgressRead,
+    DwellingProgressUpdate,
+    ProjectProgressItemRead,
+    ProjectProgressRead,
 )
 from app.services.public_codes import (
     generate_dwelling_code,
@@ -42,6 +54,25 @@ FULL_PROJECT_ACCESS_ROLES = {
     UserRole.ARCHITECT,
     UserRole.SITE_MANAGER,
 }
+
+INSTALLATION_STAGES = (
+    DwellingProgressStage.ELECTRICITY,
+    DwellingProgressStage.PLUMBING,
+    DwellingProgressStage.AIR_CONDITIONING,
+    DwellingProgressStage.SANITATION,
+    DwellingProgressStage.HOME_AUTOMATION,
+)
+
+MAIN_PROGRESS_STAGES = (
+    DwellingProgressStage.STRUCTURE,
+    DwellingProgressStage.BRACING,
+    DwellingProgressStage.INTERIOR_BOARD,
+    DwellingProgressStage.INSULATION,
+    DwellingProgressStage.EXTERIOR_BOARD,
+    DwellingProgressStage.FACADE,
+    DwellingProgressStage.ROOF,
+    DwellingProgressStage.CARPENTRY,
+)
 
 
 def generate_available_project_code(
@@ -101,6 +132,196 @@ def get_project_or_404(
         )
 
     return project
+
+
+def get_project_dwelling_or_404(
+    db: Session,
+    project_id: UUID,
+    dwelling_id: UUID,
+) -> Dwelling:
+    dwelling = db.scalar(
+        select(Dwelling).where(
+            Dwelling.id == dwelling_id,
+            Dwelling.project_id == project_id,
+        )
+    )
+
+    if dwelling is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "No se encontró la vivienda "
+                "dentro de este proyecto."
+            ),
+        )
+
+    return dwelling
+
+
+def build_dwelling_progress_response(
+    db: Session,
+    dwelling_id: UUID,
+) -> DwellingProgressRead:
+    stored_items = db.scalars(
+        select(DwellingProgress).where(
+            DwellingProgress.dwelling_id
+            == dwelling_id,
+        )
+    ).all()
+
+    stored_by_stage = {
+        item.stage: item
+        for item in stored_items
+    }
+
+    percentages = {
+        stage: (
+            stored_by_stage[stage].percentage
+            if stage in stored_by_stage
+            else 0
+        )
+        for stage in DwellingProgressStage
+    }
+
+    installations_percentage = (
+        sum(
+            percentages[stage]
+            for stage in INSTALLATION_STAGES
+        )
+        / len(INSTALLATION_STAGES)
+    )
+
+    main_percentages = [
+        percentages[stage]
+        for stage in MAIN_PROGRESS_STAGES
+    ]
+    main_percentages.append(
+        installations_percentage
+    )
+
+    overall_percentage = (
+        sum(main_percentages)
+        / len(main_percentages)
+    )
+
+    items = [
+        DwellingProgressItemRead(
+            stage=stage,
+            percentage=percentages[stage],
+            updated_by_id=(
+                stored_by_stage[stage].updated_by_id
+                if stage in stored_by_stage
+                else None
+            ),
+            updated_at=(
+                stored_by_stage[stage].updated_at
+                if stage in stored_by_stage
+                else None
+            ),
+        )
+        for stage in DwellingProgressStage
+    ]
+
+    return DwellingProgressRead(
+        dwelling_id=dwelling_id,
+        items=items,
+        installations_percentage=round(
+            installations_percentage,
+            2,
+        ),
+        overall_percentage=round(
+            overall_percentage,
+            2,
+        ),
+    )
+
+
+def build_project_progress_response(
+    db: Session,
+    project_id: UUID,
+) -> ProjectProgressRead:
+    dwelling_ids = list(
+        db.scalars(
+            select(Dwelling.id).where(
+                Dwelling.project_id == project_id,
+            )
+        ).all()
+    )
+
+    dwelling_count = len(dwelling_ids)
+
+    progress_sums = {
+        stage: 0
+        for stage in DwellingProgressStage
+    }
+
+    if dwelling_ids:
+        stored_items = db.scalars(
+            select(DwellingProgress).where(
+                DwellingProgress.dwelling_id.in_(
+                    dwelling_ids
+                )
+            )
+        ).all()
+
+        for item in stored_items:
+            progress_sums[item.stage] += (
+                item.percentage
+            )
+
+    percentages = {
+        stage: (
+            round(
+                progress_sums[stage]
+                / dwelling_count,
+                2,
+            )
+            if dwelling_count > 0
+            else 0.0
+        )
+        for stage in DwellingProgressStage
+    }
+
+    installations_percentage = (
+        sum(
+            percentages[stage]
+            for stage in INSTALLATION_STAGES
+        )
+        / len(INSTALLATION_STAGES)
+    )
+
+    main_percentages = [
+        percentages[stage]
+        for stage in MAIN_PROGRESS_STAGES
+    ]
+    main_percentages.append(
+        installations_percentage
+    )
+
+    overall_percentage = (
+        sum(main_percentages)
+        / len(main_percentages)
+    )
+
+    return ProjectProgressRead(
+        project_id=project_id,
+        dwelling_count=dwelling_count,
+        items=[
+            ProjectProgressItemRead(
+                stage=stage,
+                percentage=percentages[stage],
+            )
+            for stage in DwellingProgressStage
+        ],
+        installations_percentage=round(
+            installations_percentage,
+            2,
+        ),
+        overall_percentage=round(
+            overall_percentage,
+            2,
+        ),
+    )
 
 
 def ensure_project_view_access(
@@ -241,6 +462,32 @@ def get_project(
     return project
 
 
+@router.get(
+    "/{project_id}/progress",
+    response_model=ProjectProgressRead,
+)
+def get_project_progress(
+    project_id: UUID,
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> ProjectProgressRead:
+    project = get_project_or_404(
+        db,
+        project_id,
+    )
+
+    ensure_project_view_access(
+        db,
+        project,
+        current_user,
+    )
+
+    return build_project_progress_response(
+        db,
+        project.id,
+    )
+
+
 @router.post(
     "/{project_id}/dwellings",
     response_model=DwellingRead,
@@ -325,6 +572,105 @@ def list_project_dwellings(
     ).all()
 
     return list(dwellings)
+
+
+@router.get(
+    "/{project_id}/dwellings/{dwelling_id}/progress",
+    response_model=DwellingProgressRead,
+)
+def get_dwelling_progress(
+    project_id: UUID,
+    dwelling_id: UUID,
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> DwellingProgressRead:
+    project = get_project_or_404(
+        db,
+        project_id,
+    )
+
+    ensure_project_view_access(
+        db,
+        project,
+        current_user,
+    )
+
+    dwelling = get_project_dwelling_or_404(
+        db,
+        project.id,
+        dwelling_id,
+    )
+
+    return build_dwelling_progress_response(
+        db,
+        dwelling.id,
+    )
+
+
+@router.patch(
+    "/{project_id}/dwellings/{dwelling_id}/progress/{stage}",
+    response_model=DwellingProgressRead,
+)
+def update_dwelling_progress(
+    project_id: UUID,
+    dwelling_id: UUID,
+    stage: DwellingProgressStage,
+    progress_data: DwellingProgressUpdate,
+    db: DatabaseSession,
+    current_user: ProgressEditorUser,
+) -> DwellingProgressRead:
+    project = get_project_or_404(
+        db,
+        project_id,
+    )
+
+    dwelling = get_project_dwelling_or_404(
+        db,
+        project.id,
+        dwelling_id,
+    )
+
+    progress = db.scalar(
+        select(DwellingProgress).where(
+            DwellingProgress.dwelling_id
+            == dwelling.id,
+            DwellingProgress.stage == stage,
+        )
+    )
+
+    if progress is None:
+        progress = DwellingProgress(
+            dwelling_id=dwelling.id,
+            stage=stage,
+            percentage=progress_data.percentage,
+            updated_by_id=current_user.id,
+        )
+        db.add(progress)
+    else:
+        progress.percentage = (
+            progress_data.percentage
+        )
+        progress.updated_by_id = (
+            current_user.id
+        )
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "No se pudo actualizar "
+                "el progreso de la vivienda."
+            ),
+        ) from None
+
+    return build_dwelling_progress_response(
+        db,
+        dwelling.id,
+    )
 
 
 @router.get(

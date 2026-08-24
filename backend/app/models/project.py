@@ -65,7 +65,7 @@ class Project(Base):
         String(120),
         nullable=False,
     )
-    latitude: Mapped[str] = mapped_column(
+    latitude: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )

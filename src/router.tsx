@@ -10,6 +10,7 @@ import { ProjectsPage } from "./app/features/projects/pages/ProjectsPage";
 import { ProjectAdminRoute } from "./app/features/auth/components/project-admin-route/ProjectAdminRoute";
 import { CreateProjectPage } from "./app/features/projects/pages/CreateProjectPage";
 import { ProjectDetailPage } from "./app/features/projects/pages/ProjectDetailPage";
+import { DwellingProgressPage } from "./app/features/projects/pages/dwelling-progress/DwelllingProgressPage";
 
 export const router = createBrowserRouter([
   {
@@ -34,6 +35,10 @@ export const router = createBrowserRouter([
           {
             path: "projects/:projectId",
             element: <ProjectDetailPage />
+          },
+          {
+            path: "/projects/:projectId/dwellings/:dwellingId",
+            element: <DwellingProgressPage />
           },
           {
             element: <ProjectAdminRoute />,
