@@ -21,10 +21,7 @@ import {
   IconHomePlus,
   IconMapPin,
 } from "@tabler/icons-react";
-import {
-  Link,
-  useParams,
-} from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { useAuth } from "@/app/features/auth/context/auth-context";
 import {
@@ -33,11 +30,11 @@ import {
 } from "@/app/features/projects/api/projectsApi";
 import { CreateDwellingForm } from "@/app/features/projects/components/create-dwelling-form/CreateDwellingForm";
 import { ProjectAssignmentsSection } from "../components/project-assignments-section/ProjectAssignmentsSection";
+import { ProjectProgressSummary } from "../components/project-progress-summary/ProjectProgressSummary";
 import type {
   ProjectDetail,
   ProjectStatus,
 } from "@/app/features/projects/types";
-
 
 const statusInformation: Record<
   ProjectStatus,
@@ -61,39 +58,28 @@ const statusInformation: Record<
   },
 };
 
-
 export const ProjectDetailPage = () => {
   const { projectId } = useParams<{
     projectId: string;
   }>();
   const { user } = useAuth();
 
-  const [
-    dwellingModalOpened,
-    dwellingModal,
-  ] = useDisclosure(false);
+  const [dwellingModalOpened, dwellingModal] = useDisclosure(false);
 
-  const [project, setProject] =
-    useState<ProjectDetail | null>(null);
-  const [isLoading, setIsLoading] =
-    useState(true);
-  const [errorMessage, setErrorMessage] =
-    useState<string | null>(null);
-  const [reloadAttempt, setReloadAttempt] =
-    useState(0);
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [reloadAttempt, setReloadAttempt] = useState(0);
 
   const canCreateDwellings =
-    user?.role === "owner" ||
-    user?.role === "architect";
+    user?.role === "owner" || user?.role === "architect";
 
   useEffect(() => {
     let cancelled = false;
 
     const loadProject = async (): Promise<void> => {
       if (!projectId) {
-        setErrorMessage(
-          "No se ha indicado ningún proyecto.",
-        );
+        setErrorMessage("No se ha indicado ningún proyecto.");
         setIsLoading(false);
         return;
       }
@@ -102,8 +88,7 @@ export const ProjectDetailPage = () => {
       setErrorMessage(null);
 
       try {
-        const projectDetail =
-          await getProject(projectId);
+        const projectDetail = await getProject(projectId);
 
         if (!cancelled) {
           setProject(projectDetail);
@@ -132,9 +117,7 @@ export const ProjectDetailPage = () => {
 
   const handleDwellingCreated = (): void => {
     dwellingModal.close();
-    setReloadAttempt(
-      (current) => current + 1,
-    );
+    setReloadAttempt((current) => current + 1);
   };
 
   if (isLoading) {
@@ -154,28 +137,21 @@ export const ProjectDetailPage = () => {
             to="/projects"
             variant="subtle"
             color="dark"
-            leftSection={
-              <IconArrowLeft size={18} />
-            }
+            leftSection={<IconArrowLeft size={18} />}
             w="fit-content"
           >
             Volver a proyectos
           </Button>
 
-          <Alert
-            color="red"
-            title="No se pudo cargar el proyecto"
-          >
-            {errorMessage ??
-              "El proyecto no está disponible."}
+          <Alert color="red" title="No se pudo cargar el proyecto">
+            {errorMessage ?? "El proyecto no está disponible."}
           </Alert>
         </Stack>
       </Container>
     );
   }
 
-  const status =
-    statusInformation[project.status];
+  const status = statusInformation[project.status];
 
   return (
     <>
@@ -186,37 +162,23 @@ export const ProjectDetailPage = () => {
             to="/projects"
             variant="subtle"
             color="dark"
-            leftSection={
-              <IconArrowLeft size={18} />
-            }
+            leftSection={<IconArrowLeft size={18} />}
             w="fit-content"
           >
             Volver a proyectos
           </Button>
 
-          <Group
-            justify="space-between"
-            align="flex-start"
-          >
+          <Group justify="space-between" align="flex-start">
             <Stack gap={4}>
               <Group gap="sm">
-                <Title order={1}>
-                  {project.name}
-                </Title>
+                <Title order={1}>{project.name}</Title>
 
-                <Badge
-                  color={status.color}
-                  variant="light"
-                >
+                <Badge color={status.color} variant="light">
                   {status.label}
                 </Badge>
               </Group>
 
-              <Text
-                size="sm"
-                c="dimmed"
-                ff="monospace"
-              >
+              <Text size="sm" c="dimmed" ff="monospace">
                 {project.code}
               </Text>
             </Stack>
@@ -225,9 +187,7 @@ export const ProjectDetailPage = () => {
               <Button
                 color="yellow"
                 c="black"
-                leftSection={
-                  <IconHomePlus size={18} />
-                }
+                leftSection={<IconHomePlus size={18} />}
                 onClick={dwellingModal.open}
               >
                 Añadir vivienda
@@ -235,100 +195,55 @@ export const ProjectDetailPage = () => {
             )}
           </Group>
 
-          <SimpleGrid
-            cols={{ base: 1, md: 2 }}
-          >
-            <Card
-              withBorder
-              radius="md"
-              padding="lg"
-            >
+          <SimpleGrid cols={{ base: 1, md: 2 }}>
+            <Card withBorder radius="md" padding="lg">
               <Stack gap="sm">
                 <Group gap="xs">
                   <IconMapPin size={20} />
 
-                  <Text fw={600}>
-                    Ubicación
-                  </Text>
+                  <Text fw={600}>Ubicación</Text>
                 </Group>
 
-                <Text>
-                  {project.address}
-                </Text>
+                <Text>{project.address}</Text>
 
                 <Text c="dimmed" size="sm">
-                  {project.postal_code}{" "}
-                  {project.city},{" "}
-                  {project.province}
+                  {project.postal_code} {project.city}, {project.province}
                 </Text>
               </Stack>
             </Card>
 
-            <Card
-              withBorder
-              radius="md"
-              padding="lg"
-            >
+            <Card withBorder radius="md" padding="lg">
               <Stack gap="sm">
-                <Text fw={600}>
-                  Descripción
-                </Text>
+                <Text fw={600}>Descripción</Text>
 
-                <Text
-                  c={
-                    project.description
-                      ? undefined
-                      : "dimmed"
-                  }
-                >
-                  {project.description ??
-                    "Sin descripción."}
+                <Text c={project.description ? undefined : "dimmed"}>
+                  {project.description ?? "Sin descripción."}
                 </Text>
               </Stack>
             </Card>
           </SimpleGrid>
 
+          <ProjectProgressSummary projectId={project.id} />
+
           <Stack gap="md">
             <Group justify="space-between">
-              <Title order={2}>
-                Viviendas
-              </Title>
+              <Title order={2}>Viviendas</Title>
 
-              <Badge
-                variant="light"
-                color="gray"
-              >
+              <Badge variant="light" color="gray">
                 {project.dwellings.length}
               </Badge>
             </Group>
 
             {project.dwellings.length === 0 ? (
-              <Card
-                withBorder
-                radius="md"
-                padding="xl"
-              >
+              <Card withBorder radius="md" padding="xl">
                 <Center>
-                  <Stack
-                    align="center"
-                    gap="sm"
-                  >
-                    <IconBuilding
-                      size={40}
-                      stroke={1.5}
-                    />
+                  <Stack align="center" gap="sm">
+                    <IconBuilding size={40} stroke={1.5} />
 
-                    <Text fw={600}>
-                      Todavía no hay viviendas
-                    </Text>
+                    <Text fw={600}>Todavía no hay viviendas</Text>
 
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                      ta="center"
-                    >
-                      Añade las viviendas que
-                      pertenecen a este proyecto.
+                    <Text size="sm" c="dimmed" ta="center">
+                      Añade las viviendas que pertenecen a este proyecto.
                     </Text>
                   </Stack>
                 </Center>
@@ -341,49 +256,39 @@ export const ProjectDetailPage = () => {
                   lg: 3,
                 }}
               >
-                {project.dwellings.map(
-                  (dwelling) => (
-                    <Card
-                      key={dwelling.id}
-                      withBorder
-                      radius="md"
-                      padding="lg"
-                    >
-                      <Stack gap="sm">
-                        <Title order={3}>
-                          Vivienda{" "}
-                          {dwelling.number}
-                        </Title>
+                {project.dwellings.map((dwelling) => (
+                  <Card key={dwelling.id} withBorder radius="md" padding="lg" h="100%">
+                    <Stack gap="sm" h="100%">
+                      <Title order={3}>Vivienda {dwelling.number}</Title>
 
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                          ff="monospace"
-                        >
-                          {dwelling.code}
-                        </Text>
+                      <Text size="xs" c="dimmed" ff="monospace">
+                        {dwelling.code}
+                      </Text>
 
-                        <Text
-                          size="sm"
-                          c={
-                            dwelling.description
-                              ? undefined
-                              : "dimmed"
-                          }
-                        >
-                          {dwelling.description ??
-                            "Sin descripción."}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  ),
-                )}
+                      <Text
+                        size="sm"
+                        c={dwelling.description ? undefined : "dimmed"}
+                      >
+                        {dwelling.description ?? "Sin descripción."}
+                      </Text>
+                      <Button
+                        component={Link}
+                        to={`/projects/${project.id}/dwellings/${dwelling.id}`}
+                        variant="light"
+                        color="yellow"
+                        c="black"
+                        mt="auto"
+                      >
+                        Ver progreso
+                      </Button>
+                    </Stack>
+                  </Card>
+                ))}
               </SimpleGrid>
             )}
           </Stack>
 
-          <ProjectAssignmentsSection projectId={project.id}/>
-
+          <ProjectAssignmentsSection projectId={project.id} />
         </Stack>
       </Container>
 

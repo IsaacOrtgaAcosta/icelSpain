@@ -119,3 +119,30 @@ ProjectOverviewUser: TypeAlias = Annotated[
     User,
     Depends(require_project_overview_access),
 ]
+
+
+def require_progress_editor(
+    current_user: CurrentUser,
+) -> User:
+    allowed_roles = {
+        UserRole.OWNER,
+        UserRole.ARCHITECT,
+        UserRole.SITE_MANAGER,
+    }
+
+    if current_user.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "No tienes permisos para modificar "
+                "el progreso de la obra."
+            ),
+        )
+
+    return current_user
+
+
+ProgressEditorUser: TypeAlias = Annotated[
+    User,
+    Depends(require_progress_editor),
+]

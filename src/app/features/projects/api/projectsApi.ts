@@ -13,8 +13,13 @@ import type {
   ProjectDetail,
   ProjectStatus,
   ProjectAssignmentsBulkCreate,
+  DwellingProgress,
+  DwellingProgressItem,
+  DwellingProgressStage,
+  DwellingProgressUpdate,
+  ProjectProgress,
+  ProjectProgressItem,
 } from "../types";
-
 
 export class ProjectsApiError extends Error {
   status: number;
@@ -26,31 +31,44 @@ export class ProjectsApiError extends Error {
   }
 }
 
-
-const isProjectStatus = (
-  value: unknown,
-): value is ProjectStatus =>
+const isProjectStatus = (value: unknown): value is ProjectStatus =>
   value === "planning" ||
   value === "active" ||
   value === "paused" ||
   value === "completed";
 
-
-const isNullableString = (
+const isDwellingProgressStage = (
   value: unknown,
-): value is string | null =>
+): value is DwellingProgressStage =>
+  value === "structure" ||
+  value === "electricity" ||
+  value === "plumbing" ||
+  value === "air_conditioning" ||
+  value === "sanitation" ||
+  value === "home_automation" ||
+  value === "bracing" ||
+  value === "interior_board" ||
+  value === "insulation" ||
+  value === "exterior_board" ||
+  value === "facade" ||
+  value === "roof" ||
+  value === "carpentry";
+
+  const isValidPercentage = (
+    value: unknown,
+  ): value is number =>
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100;
+
+const isNullableString = (value: unknown): value is string | null =>
   value === null || typeof value === "string";
 
-
-const isNullableNumber = (
-  value: unknown,
-): value is number | null =>
+const isNullableNumber = (value: unknown): value is number | null =>
   value === null || typeof value === "number";
 
-
-const isProject = (
-  value: unknown,
-): value is Project => {
+const isProject = (value: unknown): value is Project => {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -87,10 +105,7 @@ const isProject = (
   );
 };
 
-
-const isDwelling = (
-  value: unknown,
-): value is Dwelling => {
+const isDwelling = (value: unknown): value is Dwelling => {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -113,7 +128,6 @@ const isDwelling = (
   );
 };
 
-
 const isAssignmentUser = (
   value: unknown,
 ): value is ProjectAssignment["user"] => {
@@ -129,12 +143,10 @@ const isAssignmentUser = (
     "full_name" in value &&
     isNullableString(value.full_name) &&
     "role" in value &&
-    (
-      value.role === "owner" ||
+    (value.role === "owner" ||
       value.role === "architect" ||
       value.role === "site_manager" ||
-      value.role === "employee"
-    ) &&
+      value.role === "employee") &&
     "is_active" in value &&
     typeof value.is_active === "boolean" &&
     "created_at" in value &&
@@ -142,10 +154,7 @@ const isAssignmentUser = (
   );
 };
 
-
-const isProjectAssignment = (
-  value: unknown,
-): value is ProjectAssignment => {
+const isProjectAssignment = (value: unknown): value is ProjectAssignment => {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -166,24 +175,94 @@ const isProjectAssignment = (
   );
 };
 
+const isDwellingProgressItem = (
+  value: unknown,
+): value is DwellingProgressItem => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
 
-const getResponseData = async (
-  response: Response,
-): Promise<unknown> =>
+  return (
+    "stage" in value &&
+    isDwellingProgressStage(value.stage) &&
+    "percentage" in value &&
+    isValidPercentage(value.percentage) &&
+    "updated_by_id" in value &&
+    isNullableString(value.updated_by_id) &&
+    "updated_at" in value &&
+    isNullableString(value.updated_at)
+  );
+};
+
+const isDwellingProgress = (
+  value: unknown,
+): value is DwellingProgress => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    "dwelling_id" in value &&
+    typeof value.dwelling_id === "string" &&
+    "items" in value &&
+    Array.isArray(value.items) &&
+    value.items.every(isDwellingProgressItem) &&
+    "installations_percentage" in value &&
+    isValidPercentage(value.installations_percentage) &&
+    "overall_percentage" in value &&
+    isValidPercentage(value.overall_percentage)
+  );
+};
+
+const isProjectProgressItem = (
+  value: unknown,
+): value is ProjectProgressItem => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    "stage" in value &&
+    isDwellingProgressStage(value.stage) &&
+    "percentage" in value &&
+    isValidPercentage(value.percentage)
+  );
+};
+
+const isProjectProgress = (
+  value: unknown,
+): value is ProjectProgress => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    "project_id" in value &&
+    typeof value.project_id === "string" &&
+    "dwelling_count" in value &&
+    typeof value.dwelling_count === "number" &&
+    Number.isInteger(value.dwelling_count) &&
+    value.dwelling_count >= 0 &&
+    "items" in value &&
+    Array.isArray(value.items) &&
+    value.items.every(isProjectProgressItem) &&
+    "installations_percentage" in value &&
+    isValidPercentage(value.installations_percentage) &&
+    "overall_percentage" in value &&
+    isValidPercentage(value.overall_percentage)
+  );
+};
+
+const getResponseData = async (response: Response): Promise<unknown> =>
   response.json().catch(() => null);
 
-
-const getErrorMessage = (
-  data: unknown,
-  fallback: string,
-): string =>
+const getErrorMessage = (data: unknown, fallback: string): string =>
   typeof data === "object" &&
   data !== null &&
   "detail" in data &&
   typeof data.detail === "string"
     ? data.detail
     : fallback;
-
 
 const performRequest = async (
   path: string,
@@ -193,19 +272,12 @@ const performRequest = async (
     return await authenticatedFetch(path, options);
   } catch (error) {
     if (error instanceof AuthApiError) {
-      throw new ProjectsApiError(
-        error.message,
-        error.status,
-      );
+      throw new ProjectsApiError(error.message, error.status);
     }
 
-    throw new ProjectsApiError(
-      "No se pudo conectar con el servidor.",
-      0,
-    );
+    throw new ProjectsApiError("No se pudo conectar con el servidor.", 0);
   }
 };
-
 
 export const listProjects = async (): Promise<Project[]> => {
   const response = await performRequest("/api/v1/projects");
@@ -213,10 +285,7 @@ export const listProjects = async (): Promise<Project[]> => {
 
   if (!response.ok) {
     throw new ProjectsApiError(
-      getErrorMessage(
-        data,
-        "No se pudieron obtener los proyectos.",
-      ),
+      getErrorMessage(data, "No se pudieron obtener los proyectos."),
       response.status,
     );
   }
@@ -231,29 +300,22 @@ export const listProjects = async (): Promise<Project[]> => {
   return data;
 };
 
-
 export const createProject = async (
   projectData: ProjectCreate,
 ): Promise<Project> => {
-  const response = await performRequest(
-    "/api/v1/projects",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(projectData),
+  const response = await performRequest("/api/v1/projects", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify(projectData),
+  });
 
   const data = await getResponseData(response);
 
   if (!response.ok) {
     throw new ProjectsApiError(
-      getErrorMessage(
-        data,
-        "No se pudo crear el proyecto.",
-      ),
+      getErrorMessage(data, "No se pudo crear el proyecto."),
       response.status,
     );
   }
@@ -268,24 +330,16 @@ export const createProject = async (
   return data;
 };
 
-
-export const getProject = async (
-  projectId: string,
-): Promise<ProjectDetail> => {
+export const getProject = async (projectId: string): Promise<ProjectDetail> => {
   const response = await performRequest(
     `/api/v1/projects/${encodeURIComponent(projectId)}`,
   );
 
   const data = await getResponseData(response);
 
-  if (
-    !response.ok
-  ) {
+  if (!response.ok) {
     throw new ProjectsApiError(
-      getErrorMessage(
-        data,
-        "No se pudo obtener el proyecto.",
-      ),
+      getErrorMessage(data, "No se pudo obtener el proyecto."),
       response.status,
     );
   }
@@ -308,7 +362,6 @@ export const getProject = async (
   };
 };
 
-
 export const createDwelling = async (
   projectId: string,
   dwellingData: DwellingCreate,
@@ -328,10 +381,7 @@ export const createDwelling = async (
 
   if (!response.ok) {
     throw new ProjectsApiError(
-      getErrorMessage(
-        data,
-        "No se pudo crear la vivienda.",
-      ),
+      getErrorMessage(data, "No se pudo crear la vivienda."),
       response.status,
     );
   }
@@ -357,18 +407,12 @@ export const listProjectAssignments = async (
 
   if (!response.ok) {
     throw new ProjectsApiError(
-      getErrorMessage(
-        data,
-        "No se pudo obtener el personal asignado.",
-      ),
+      getErrorMessage(data, "No se pudo obtener el personal asignado."),
       response.status,
     );
   }
 
-  if (
-    !Array.isArray(data) ||
-    !data.every(isProjectAssignment)
-  ) {
+  if (!Array.isArray(data) || !data.every(isProjectAssignment)) {
     throw new ProjectsApiError(
       "El servidor devolvió una lista de asignaciones inesperada.",
       response.status,
@@ -377,7 +421,6 @@ export const listProjectAssignments = async (
 
   return data;
 };
-
 
 export const assignUserToProject = async (
   projectId: string,
@@ -398,10 +441,7 @@ export const assignUserToProject = async (
 
   if (!response.ok) {
     throw new ProjectsApiError(
-      getErrorMessage(
-        data,
-        "No se pudo asignar el empleado.",
-      ),
+      getErrorMessage(data, "No se pudo asignar el empleado."),
       response.status,
     );
   }
@@ -415,7 +455,6 @@ export const assignUserToProject = async (
 
   return data;
 };
-
 
 export const removeUserFromProject = async (
   projectId: string,
@@ -432,10 +471,7 @@ export const removeUserFromProject = async (
     const data = await getResponseData(response);
 
     throw new ProjectsApiError(
-      getErrorMessage(
-        data,
-        "No se pudo retirar al empleado del proyecto.",
-      ),
+      getErrorMessage(data, "No se pudo retirar al empleado del proyecto."),
       response.status,
     );
   }
@@ -448,9 +484,9 @@ export const assignUsersToProject = async (
   const response = await performRequest(
     `/api/v1/projects/${encodeURIComponent(projectId)}/assignments/bulk`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(assignmentData),
     },
@@ -458,24 +494,118 @@ export const assignUsersToProject = async (
 
   const data = await getResponseData(response);
 
-  if(!response.ok) {
+  if (!response.ok) {
+    throw new ProjectsApiError(
+      getErrorMessage(data, "No se pudieron asignar los empleados"),
+      response.status,
+    );
+  }
+
+  if (!Array.isArray(data) || !data.every(isProjectAssignment)) {
+    throw new ProjectsApiError(
+      "El servidor devolvió una lista de asignaciones inesperada",
+      response.status,
+    );
+  }
+
+  return data;
+};
+
+
+export const getProjectProgress = async (
+  projectId: string,
+): Promise<ProjectProgress> => {
+  const response = await performRequest(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/progress`,
+  );
+
+  const data = await getResponseData(response);
+
+  if (!response.ok) {
     throw new ProjectsApiError(
       getErrorMessage(
         data,
-        "No se pudieron asignar los empleados",
+        "No se pudo obtener el progreso del proyecto.",
       ),
       response.status,
     );
   }
 
-  if (
-    !Array.isArray(data) ||
-    !data.every(isProjectAssignment)
-  ) {
+  if (!isProjectProgress(data)) {
     throw new ProjectsApiError(
-      "El servidor devolvió una lista de asignaciones inesperada", response.status,
+      "El servidor devolvió un progreso de proyecto inesperado.",
+      response.status,
     );
   }
 
   return data;
-}
+};
+
+export const getDwellingProgress = async (
+  projectId: string,
+  dwellingId: string,
+): Promise<DwellingProgress> => {
+  const response = await performRequest(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/dwellings/${encodeURIComponent(dwellingId)}/progress`,
+  );
+
+  const data = await getResponseData(response);
+
+  if (!response.ok) {
+    throw new ProjectsApiError(
+      getErrorMessage(
+        data,
+        "No se pudo obtener el progreso de la vivienda.",
+      ),
+      response.status,
+    );
+  }
+
+  if (!isDwellingProgress(data)) {
+    throw new ProjectsApiError(
+      "El servidor devolvió un progreso de vivienda inesperado.",
+      response.status,
+    );
+  }
+
+  return data;
+};
+
+export const updateDwellingProgress = async (
+  projectId: string,
+  dwellingId: string,
+  stage: DwellingProgressStage,
+  progressData: DwellingProgressUpdate,
+): Promise<DwellingProgress> => {
+  const response = await performRequest(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/dwellings/${encodeURIComponent(dwellingId)}/progress/${encodeURIComponent(stage)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(progressData),
+    },
+  );
+
+  const data = await getResponseData(response);
+
+  if (!response.ok) {
+    throw new ProjectsApiError(
+      getErrorMessage(
+        data,
+        "No se pudo actualizar el progreso de la vivienda.",
+      ),
+      response.status,
+    );
+  }
+
+  if (!isDwellingProgress(data)) {
+    throw new ProjectsApiError(
+      "El servidor devolvió un progreso de vivienda inesperado.",
+      response.status,
+    );
+  }
+
+  return data;
+};
