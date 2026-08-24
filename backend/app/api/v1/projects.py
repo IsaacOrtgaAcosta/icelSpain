@@ -1,12 +1,14 @@
 from uuid import UUID
 
 from app.api.dependencies import (
+    CurrentUser,
     DatabaseSession,
     ProjectAdminUser,
-    ProjectOverviewUser,
 )
 from app.models.dwelling import Dwelling
 from app.models.project import Project
+from app.models.project_assignment import ProjectAssignment
+from app.models.user import User, UserRole
 from app.schemas.project import (
     DwellingCreate,
     DwellingRead,
@@ -14,11 +16,16 @@ from app.schemas.project import (
     ProjectDetail,
     ProjectRead,
 )
+from app.schemas.project_assignment import (
+    ProjectAssignmentCreate,
+    ProjectAssignmentRead,
+    ProjectAssignmentsBulkCreate,
+)
 from app.services.public_codes import (
     generate_dwelling_code,
     generate_project_code,
 )
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -29,6 +36,12 @@ router = APIRouter(
 )
 
 MAX_CODE_GENERATION_ATTEMPTS = 10
+
+FULL_PROJECT_ACCESS_ROLES = {
+    UserRole.OWNER,
+    UserRole.ARCHITECT,
+    UserRole.SITE_MANAGER,
+}
 
 
 def generate_available_project_code(
@@ -90,6 +103,42 @@ def get_project_or_404(
     return project
 
 
+def ensure_project_view_access(
+    db: Session,
+    project: Project,
+    current_user: User,
+) -> None:
+    if current_user.role in FULL_PROJECT_ACCESS_ROLES:
+        return
+
+    assignment_id = db.scalar(
+        select(ProjectAssignment.id).where(
+            ProjectAssignment.project_id == project.id,
+            ProjectAssignment.user_id == current_user.id,
+        )
+    )
+
+    if assignment_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No estás asignado a este proyecto.",
+        )
+
+
+def build_assignment_response(
+    assignment: ProjectAssignment,
+    user: User,
+) -> ProjectAssignmentRead:
+    return ProjectAssignmentRead(
+        id=assignment.id,
+        project_id=assignment.project_id,
+        user_id=assignment.user_id,
+        assigned_by_id=assignment.assigned_by_id,
+        created_at=assignment.created_at,
+        user=user,
+    )
+
+
 @router.post(
     "",
     response_model=ProjectRead,
@@ -135,11 +184,29 @@ def create_project(
 )
 def list_projects(
     db: DatabaseSession,
-    _current_user: ProjectOverviewUser,
+    current_user: CurrentUser,
 ) -> list[Project]:
+    statement = select(Project)
+
+    if current_user.role == UserRole.EMPLOYEE:
+        statement = (
+            statement.join(
+                ProjectAssignment,
+                ProjectAssignment.project_id == Project.id,
+            )
+            .where(
+                ProjectAssignment.user_id == current_user.id,
+            )
+        )
+    elif current_user.role not in FULL_PROJECT_ACCESS_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para consultar los proyectos.",
+        )
+
     projects = db.scalars(
-        select(Project).order_by(Project.created_at.desc())
-    ).all()
+        statement.order_by(Project.created_at.desc())
+    ).unique().all()
 
     return list(projects)
 
@@ -151,7 +218,7 @@ def list_projects(
 def get_project(
     project_id: UUID,
     db: DatabaseSession,
-    _current_user: ProjectOverviewUser,
+    current_user: CurrentUser,
 ) -> Project:
     project = db.scalar(
         select(Project)
@@ -164,6 +231,12 @@ def get_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No se encontró el proyecto.",
         )
+
+    ensure_project_view_access(
+        db,
+        project,
+        current_user,
+    )
 
     return project
 
@@ -232,11 +305,17 @@ def create_dwelling(
 def list_project_dwellings(
     project_id: UUID,
     db: DatabaseSession,
-    _current_user: ProjectOverviewUser,
+    current_user: CurrentUser,
 ) -> list[Dwelling]:
     project = get_project_or_404(
         db,
         project_id,
+    )
+
+    ensure_project_view_access(
+        db,
+        project,
+        current_user,
     )
 
     dwellings = db.scalars(
@@ -246,3 +325,285 @@ def list_project_dwellings(
     ).all()
 
     return list(dwellings)
+
+
+@router.get(
+    "/{project_id}/assignments",
+    response_model=list[ProjectAssignmentRead],
+)
+def list_project_assignments(
+    project_id: UUID,
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> list[ProjectAssignmentRead]:
+    project = get_project_or_404(
+        db,
+        project_id,
+    )
+
+    ensure_project_view_access(
+        db,
+        project,
+        current_user,
+    )
+
+    rows = db.execute(
+        select(ProjectAssignment, User)
+        .join(
+            User,
+            User.id == ProjectAssignment.user_id,
+        )
+        .where(
+            ProjectAssignment.project_id == project.id,
+        )
+        .order_by(
+            User.full_name,
+            User.email,
+        )
+    ).all()
+
+    return [
+        build_assignment_response(
+            assignment,
+            user,
+        )
+        for assignment, user in rows
+    ]
+
+
+@router.post(
+    "/{project_id}/assignments/bulk",
+    response_model=list[ProjectAssignmentRead],
+    status_code=status.HTTP_201_CREATED,
+)
+def assign_users_to_project(
+    project_id: UUID,
+    assignment_data: ProjectAssignmentsBulkCreate,
+    db: DatabaseSession,
+    current_user: ProjectAdminUser,
+) -> list[ProjectAssignmentRead]:
+    project = get_project_or_404(
+        db,
+        project_id,
+    )
+
+    requested_user_ids = assignment_data.user_ids
+
+    users = list(
+        db.scalars(
+            select(User).where(
+                User.id.in_(requested_user_ids),
+            )
+        ).all()
+    )
+
+    found_user_ids = {
+        user.id
+        for user in users
+    }
+
+    missing_user_ids = (
+        requested_user_ids - found_user_ids
+    )
+
+    if missing_user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "Uno o varios empleados "
+                "no existen."
+            ),
+        )
+
+    invalid_users = [
+        user
+        for user in users
+        if (
+            user.role != UserRole.EMPLOYEE
+            or not user.is_active
+        )
+    ]
+
+    if invalid_users:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Solo se pueden asignar "
+                "empleados activos."
+            ),
+        )
+
+    existing_user_ids = set(
+        db.scalars(
+            select(ProjectAssignment.user_id)
+            .where(
+                ProjectAssignment.project_id
+                == project.id,
+                ProjectAssignment.user_id.in_(
+                    requested_user_ids,
+                ),
+            )
+        ).all()
+    )
+
+    new_assignments = [
+        ProjectAssignment(
+            project_id=project.id,
+            user_id=user.id,
+            assigned_by_id=current_user.id,
+        )
+        for user in users
+        if user.id not in existing_user_ids
+    ]
+
+    try:
+        db.add_all(new_assignments)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "No se pudieron completar "
+                "las asignaciones."
+            ),
+        ) from None
+
+    rows = db.execute(
+        select(ProjectAssignment, User)
+        .join(
+            User,
+            User.id == ProjectAssignment.user_id,
+        )
+        .where(
+            ProjectAssignment.project_id
+            == project.id,
+            ProjectAssignment.user_id.in_(
+                requested_user_ids,
+            ),
+        )
+        .order_by(
+            User.full_name,
+            User.email,
+        )
+    ).all()
+
+    return [
+        build_assignment_response(
+            assignment,
+            user,
+        )
+        for assignment, user in rows
+    ]
+
+
+@router.post(
+    "/{project_id}/assignments",
+    response_model=ProjectAssignmentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def assign_user_to_project(
+    project_id: UUID,
+    assignment_data: ProjectAssignmentCreate,
+    db: DatabaseSession,
+    current_user: ProjectAdminUser,
+) -> ProjectAssignmentRead:
+    project = get_project_or_404(
+        db,
+        project_id,
+    )
+
+    user = db.get(
+        User,
+        assignment_data.user_id,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se encontró el usuario.",
+        )
+
+    if user.role != UserRole.EMPLOYEE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se pueden asignar usuarios con rol de empleado.",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede asignar un usuario desactivado.",
+        )
+
+    existing_assignment = db.scalar(
+        select(ProjectAssignment).where(
+            ProjectAssignment.project_id == project.id,
+            ProjectAssignment.user_id == user.id,
+        )
+    )
+
+    if existing_assignment is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El empleado ya está asignado a este proyecto.",
+        )
+
+    assignment = ProjectAssignment(
+        project_id=project.id,
+        user_id=user.id,
+        assigned_by_id=current_user.id,
+    )
+
+    try:
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El empleado ya está asignado a este proyecto.",
+        ) from None
+
+    return build_assignment_response(
+        assignment,
+        user,
+    )
+
+
+@router.delete(
+    "/{project_id}/assignments/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_user_from_project(
+    project_id: UUID,
+    user_id: UUID,
+    db: DatabaseSession,
+    _current_user: ProjectAdminUser,
+) -> Response:
+    project = get_project_or_404(
+        db,
+        project_id,
+    )
+
+    assignment = db.scalar(
+        select(ProjectAssignment).where(
+            ProjectAssignment.project_id == project.id,
+            ProjectAssignment.user_id == user_id,
+        )
+    )
+
+    if assignment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El empleado no está asignado a este proyecto.",
+        )
+
+    db.delete(assignment)
+    db.commit()
+
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )

@@ -1,13 +1,36 @@
+from app.api.dependencies import (
+    DatabaseSession,
+    OwnerUser,
+    ProjectAdminUser,
+)
+from app.core.security import hash_password
+from app.models.user import User, UserRole
+from app.schemas.user import ManagedUserCreate, UserRead
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.dependencies import DatabaseSession, OwnerUser
-from app.core.security import hash_password
-from app.models.user import User
-from app.schemas.user import ManagedUserCreate, UserRead
-
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+@router.get(
+    "/assignable",
+    response_model=list[UserRead],
+)
+def list_assignable_users(
+    db: DatabaseSession,
+    _current_user: ProjectAdminUser,
+) -> list[User]:
+    users = db.scalars(
+        select(User)
+        .where(
+            User.role == UserRole.EMPLOYEE,
+            User.is_active.is_(True),
+        )
+        .order_by(User.full_name, User.email)
+    ).all()
+
+    return list(users)
 
 
 @router.post(

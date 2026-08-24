@@ -1,3 +1,5 @@
+import type { AuthUser } from "@/app/features/auth/types";
+
 export type ProjectStatus = 
 | "planning"
 | "active"
@@ -48,4 +50,21 @@ export type DwellingCreate = {
 
 export type ProjectDetail = Project & {
     dwellings: Dwelling[];
+};
+
+export type ProjectAssignmentCreate = {
+    user_id: string;
+}
+
+export type ProjectAssignment = {
+    id: string;
+    project_id: string;
+    user_id: string;
+    assigned_by_id: string;
+    created_at: string;
+    user: AuthUser;
+}
+
+export type ProjectAssignmentsBulkCreate = {
+    user_ids: string[];
 };
